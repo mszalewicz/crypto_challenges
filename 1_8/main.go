@@ -6,13 +6,52 @@ import (
 	"math/big"
 	"slices"
 	"strconv"
+	"strings"
 )
 
 func main() {
 	var input string = "49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d"
-	c := convertHex2BigInt(input)
-	base64Result := convertBigInt2Base64(c)
-	fmt.Println(base64Result)
+
+	binaryRepresentation := hex_decode(input)
+	base64Representation := base64_encode(binaryRepresentation)
+
+	fmt.Println(base64Representation)
+}
+
+func hex_decode(input string) []byte {
+	if len(input)%2 != 0 {
+		log.Fatal("Provided hex string has odd length. Please provide valid hex string.")
+	}
+
+	conversion := "0123456789abcdef"
+
+	var number []byte
+	for i := 0; i < len(input)-1; i += 2 {
+		number = append(number, byte(strings.Index(conversion, string(input[i])))<<4|byte(strings.Index(conversion, string(input[i+1]))))
+	}
+	return number
+}
+
+func base64_encode(input []byte) string {
+	conversion := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+	index := 0
+	result := ""
+	if len(input) >= 3 {
+		for i := 0; i < len(input)-2; i += 3 {
+			index = int(input[i] >> 2)
+			result += string(conversion[index])
+
+			index = int(((input[i] << 6) >> 2) | (input[i+1] >> 4))
+			result += string(conversion[index])
+
+			index = int(((input[i+1] << 4) >> 2) | (input[i+2] >> 6))
+			result += string(conversion[index])
+
+			index = int((input[i+2] << 2) >> 2)
+			result += string(conversion[index])
+		}
+	}
+	return result
 }
 
 func convertHex2BigInt(hex string) *big.Int {
