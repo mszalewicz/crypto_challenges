@@ -10,12 +10,39 @@ import (
 )
 
 func main() {
-	var input string = "49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d"
 
-	binaryRepresentation := hex_decode(input)
-	base64Representation := base64_encode(binaryRepresentation)
+	{ // Challenge 1
+		challenge1Input := "49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d"
 
-	fmt.Println(base64Representation)
+		binaryRepresentation := hex_decode(challenge1Input)
+		base64Representation := base64_encode(binaryRepresentation)
+
+		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+		fmt.Printf(":: Challenge 1 ::\n\n")
+		fmt.Println("expect:", "SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t")
+		fmt.Println("result:", base64Representation)
+		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+	}
+
+	{ // Challenge 2
+		input1 := "1c0111001f010100061a024b53535009181c"
+		input2 := "686974207468652062756c6c277320657965"
+
+		bin1 := hex_decode(input1)
+		bin2 := hex_decode(input2)
+
+		var result []byte
+
+		for i := range len(bin1) {
+			result = append(result, bin1[i]^bin2[i])
+		}
+
+		fmt.Printf(":: Challenge 2 ::\n\n")
+		fmt.Println("expect:", base64_encode(hex_decode("746865206b696420646f6e277420706c6179")))
+		fmt.Println("result:", base64_encode(result))
+		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+	}
+
 }
 
 func hex_decode(input string) []byte {
