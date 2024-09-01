@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"math/big"
 	"slices"
 	"strconv"
@@ -43,6 +44,68 @@ func main() {
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
 	}
 
+	{ // Challenge 3
+		input := "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736"
+		result := dictonary_attack(input)
+
+		fmt.Printf(":: Challenge 3 ::\n\n")
+		fmt.Println("result:", result)
+		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+	}
+
+}
+
+func dictonary_attack(input string) string {
+	decoded := hex_decode(input)
+	letterScores := make([]float64, 26)
+	realWorldProbabilities := []float64{0.117, 0.44, 0.52, 0.32, 0.28, 0.4, 0.16, 0.42, 0.73, 0.051, 0.086, 0.24, 0.38, 0.23, 0.76, 0.43, 0.022, 0.28, 0.67, 0.16, 0.12, 0.082, 0.55, 0.0045, 0.076, 0.0045}
+
+	xored := make([]byte, len(decoded))
+	bestResult := make([]byte, len(decoded))
+	bestPreviousScore := math.MaxFloat64
+	for charByte := byte(0); ; charByte++ {
+		// 1. XOR input with every possible byte value.
+		// 2. Penalize results that are not valid character.
+		// 3. Compare distribution of XORed values with letter probabillity for english and note the difference.
+		// 4. The smaller the final score, the better the result.
+
+		finalScore := 0.0
+
+		for i, decodedByte := range decoded {
+			xored[i] = decodedByte ^ charByte
+
+			switch {
+			case int(xored[i]) >= 65 && int(xored[i]) <= 90:
+				letterScores[int(xored[i])-65] += 1
+			case int(xored[i]) >= 97 && int(xored[i]) <= 122:
+				letterScores[int(xored[i])-97] += 1
+			case int(xored[i]) == 32:
+			case slices.Contains([]int{33, 39, 44, 45, 46, 58, 59, 96}, int(xored[i])): // check if byte represent space or interpunction signs
+				finalScore += 0.5 // arbitrary tuning to penalize interpunction slightly; needed in case input include many interpunction signs, e.x. "Onv!ui`u!uid!q`sux!hr!ktlqhof"
+			default:
+				finalScore += 10
+			}
+		}
+
+		for i, val := range letterScores {
+			if val == 0 {
+				continue
+			}
+
+			finalScore += math.Abs(realWorldProbabilities[i] - val/float64(len(xored)))
+		}
+
+		if finalScore < bestPreviousScore {
+			bestPreviousScore = finalScore
+			bestResult = slices.Clone(xored)
+		}
+
+		if charByte == byte(255) {
+			break
+		}
+	}
+
+	return string(bestResult)
 }
 
 func hex_decode(input string) []byte {
