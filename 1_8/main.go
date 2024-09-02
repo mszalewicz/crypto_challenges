@@ -79,7 +79,7 @@ func main() {
 
 	{ // Challenge 5
 		input := `Burning 'em, if you ain't quick and nimble
-I go crazy when I hear a cymbal`
+	I go crazy when I hear a cymbal`
 
 		key := []byte("ICE")
 		keyRotationBookkeeping := 0
@@ -87,7 +87,7 @@ I go crazy when I hear a cymbal`
 
 		for i, letter := range input {
 			result[i] = byte(letter) ^ key[keyRotationBookkeeping]
-			if keyRotationBookkeeping == 2 {
+			if keyRotationBookkeeping == len(key)-1 {
 				keyRotationBookkeeping = 0
 			} else {
 				keyRotationBookkeeping++
@@ -98,6 +98,38 @@ I go crazy when I hear a cymbal`
 		fmt.Println("expect:", "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f")
 		fmt.Printf("result: %x\n", result)
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+	}
+}
+
+func encrypt_with_repeating_key(input string, key string) {
+	keyBytes := []byte(key)
+	keyRotationBookkeeping := 0
+	result := make([]byte, len(input))
+
+	for i, letter := range input {
+		result[i] = byte(letter) ^ keyBytes[keyRotationBookkeeping]
+		if keyRotationBookkeeping == 2 {
+			keyRotationBookkeeping = 0
+		} else {
+			keyRotationBookkeeping++
+		}
+	}
+
+	printable := fmt.Sprintf("%x", result)
+	whenToNewLine := 0
+	everyTwoLetterBreak := 0
+
+	for _, letter := range printable {
+		fmt.Print(string(letter))
+		if everyTwoLetterBreak%2 == 1 {
+			fmt.Print(" ")
+		}
+		whenToNewLine++
+		if whenToNewLine == (len(key))*2 {
+			fmt.Println()
+			whenToNewLine = 0
+		}
+		everyTwoLetterBreak++
 	}
 }
 
