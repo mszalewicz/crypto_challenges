@@ -1,6 +1,7 @@
 package main
 
 import (
+	b64 "encoding/base64"
 	"fmt"
 	"log"
 	"math"
@@ -99,6 +100,117 @@ func main() {
 		fmt.Printf("result: %x\n", result)
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
 	}
+
+	{ // Challenge 6
+
+		file, err := os.ReadFile("./input_challenge_6.txt")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		input, err := b64.StdEncoding.DecodeString(string(file))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		smallestHamming := make([][]int, 4) // NOTE: 1st level denotes hamming distance, 2nd level denotes key size that achieved given score
+
+		for KEYSIZE := 2; KEYSIZE <= 40; KEYSIZE++ {
+			result := hamming_distance(input[:KEYSIZE], input[KEYSIZE+1:2*KEYSIZE+1]) / KEYSIZE
+
+			if result < len(smallestHamming) {
+				smallestHamming[result] = append(smallestHamming[result], KEYSIZE)
+			}
+		}
+
+		fmt.Printf("%v\n", smallestHamming)
+
+		candidates := make([]int, 0)
+
+	CandidatesLoop:
+		for _, tier := range smallestHamming {
+			for _, keysize := range tier {
+				candidates = append(candidates, keysize)
+				if len(candidates) == 3 {
+					break CandidatesLoop
+				}
+			}
+		}
+
+		sets := make([][][]byte, 0, 3)
+
+		{ // Partition original input into lines of length KEYSIZE - done for 3 smallest candidate key sizes
+			for _, candidateLen := range candidates {
+				bookmark := 0
+				howManyPartitions := int(math.Ceil((float64(len(input)) / float64(candidateLen))))
+				set := make([][]byte, 0)
+
+				for partition := range howManyPartitions {
+					line := make([]byte, 0)
+
+					switch {
+					case partition == howManyPartitions-1:
+						line = input[bookmark:]
+					default:
+						line = input[bookmark : bookmark+candidateLen]
+						bookmark = bookmark + candidateLen
+					}
+					set = append(set, line)
+				}
+				sets = append(sets, set)
+			}
+		}
+
+		transposedSets := make([][][]byte, 0)
+
+		{ // Transpose sets to calculate histograms of original columns
+			for _, set := range sets {
+				tableTransposed := make([][]byte, 0)
+
+				for longColumnPosition := range len(set[len(set)-1]) {
+					columnTransposed := make([]byte, len(set))
+
+					for columnLevel := range len(set) {
+						columnTransposed[columnLevel] = set[columnLevel][longColumnPosition]
+					}
+					tableTransposed = append(tableTransposed, columnTransposed)
+				}
+
+				if len(set[0]) != len(set[len(set)-1]) {
+					for shortColumnPosition := len(set[len(set)-1]); shortColumnPosition <= len(set[0])-1; shortColumnPosition++ {
+						columnTransposed := make([]byte, len(set)-1)
+
+						for columnLevel := range len(set) - 1 {
+							columnTransposed[columnLevel] = set[columnLevel][shortColumnPosition]
+						}
+
+						tableTransposed = append(tableTransposed, columnTransposed)
+					}
+				}
+				transposedSets = append(transposedSets, tableTransposed)
+			}
+		}
+
+		{ // Calculate histograms
+
+		}
+	}
+
+}
+
+func hamming_distance(input, compare []byte) int {
+	if len(input) != len(compare) {
+		log.Fatal("Strings inputs for hamming distance calculation differ in size.")
+	}
+
+	difference := 0
+	for i := range input {
+		for xored := input[i] ^ compare[i]; xored != 0; xored &= xored - 1 {
+			difference++
+		}
+	}
+
+	return difference
 }
 
 func encrypt_with_repeating_key(input string, key string) {
