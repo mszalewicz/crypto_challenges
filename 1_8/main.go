@@ -48,7 +48,8 @@ func main() {
 
 	{ // Challenge 3
 		input := "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736"
-		result := dictonary_attack(input)
+		decoded := hex_decode(input)
+		result, _ := byte_attack(decoded)
 
 		fmt.Printf(":: Challenge 3 ::\n\n")
 		fmt.Println("result:", result)
@@ -65,7 +66,8 @@ func main() {
 		bestResult := ""
 		input := strings.Fields(string(file))
 		for _, line := range input {
-			result := dictonary_attack(line)
+			decoded := hex_decode(line)
+			result, _ := byte_attack(decoded)
 			score := score_string(result)
 			if score < bestScore {
 				bestScore = score
@@ -79,8 +81,7 @@ func main() {
 	}
 
 	{ // Challenge 5
-		input := `Burning 'em, if you ain't quick and nimble
-	I go crazy when I hear a cymbal`
+		input := "Burning 'em, if you ain't quick and nimble I go crazy when I hear a cymbal"
 
 		key := []byte("ICE")
 		keyRotationBookkeeping := 0
@@ -102,7 +103,6 @@ func main() {
 	}
 
 	{ // Challenge 6
-
 		file, err := os.ReadFile("./input_challenge_6.txt")
 		if err != nil {
 			log.Fatal(err)
@@ -113,89 +113,95 @@ func main() {
 			log.Fatal(err)
 		}
 
-		smallestHamming := make([][]int, 4) // NOTE: 1st level denotes hamming distance, 2nd level denotes key size that achieved given score
+		smallestScore := math.MaxInt
+		mostProbableKeySize := 0
 
 		for KEYSIZE := 2; KEYSIZE <= 40; KEYSIZE++ {
-			result := hamming_distance(input[:KEYSIZE], input[KEYSIZE+1:2*KEYSIZE+1]) / KEYSIZE
+			result := 0
 
-			if result < len(smallestHamming) {
-				smallestHamming[result] = append(smallestHamming[result], KEYSIZE)
+			for position := 0; position < 20*KEYSIZE; position += KEYSIZE {
+				result += hamming_distance(input[position:position+KEYSIZE], input[position+KEYSIZE:position+2*KEYSIZE])
+			}
+
+			score := result / KEYSIZE
+
+			if score < smallestScore {
+				smallestScore = score
+				mostProbableKeySize = KEYSIZE
 			}
 		}
 
-		fmt.Printf("%v\n", smallestHamming)
+		blocks := make([][]byte, 0)
+		{ // Partition original input into lines of length KEYSIZE - done for the best candidate key size
+			bookmark := 0
+			howManyPartitions := int(math.Ceil((float64(len(input)) / float64(mostProbableKeySize))))
 
-		candidates := make([]int, 0)
+			for partition := range howManyPartitions {
+				line := make([]byte, 0)
 
-	CandidatesLoop:
-		for _, tier := range smallestHamming {
-			for _, keysize := range tier {
-				candidates = append(candidates, keysize)
-				if len(candidates) == 3 {
-					break CandidatesLoop
+				switch {
+				case partition == howManyPartitions-1:
+					line = input[bookmark:]
+				default:
+					line = input[bookmark : bookmark+mostProbableKeySize]
+					bookmark = bookmark + mostProbableKeySize
 				}
+				blocks = append(blocks, line)
 			}
 		}
 
-		sets := make([][][]byte, 0, 3)
+		tableTransposed := make([][]byte, 0)
+		{ // Transpose set to calulate histograms of original columns
 
-		{ // Partition original input into lines of length KEYSIZE - done for 3 smallest candidate key sizes
-			for _, candidateLen := range candidates {
-				bookmark := 0
-				howManyPartitions := int(math.Ceil((float64(len(input)) / float64(candidateLen))))
-				set := make([][]byte, 0)
+			for longColumnPosition := range len(blocks[len(blocks)-1]) {
+				columnTransposed := make([]byte, len(blocks))
 
-				for partition := range howManyPartitions {
-					line := make([]byte, 0)
-
-					switch {
-					case partition == howManyPartitions-1:
-						line = input[bookmark:]
-					default:
-						line = input[bookmark : bookmark+candidateLen]
-						bookmark = bookmark + candidateLen
-					}
-					set = append(set, line)
+				for columnLevel := range len(blocks) {
+					columnTransposed[columnLevel] = blocks[columnLevel][longColumnPosition]
 				}
-				sets = append(sets, set)
+				tableTransposed = append(tableTransposed, columnTransposed)
 			}
-		}
 
-		transposedSets := make([][][]byte, 0)
+			if len(blocks[0]) != len(blocks[len(blocks)-1]) {
+				for shortColumnPosition := len(blocks[len(blocks)-1]); shortColumnPosition <= len(blocks[0])-1; shortColumnPosition++ {
+					columnTransposed := make([]byte, len(blocks)-1)
 
-		{ // Transpose sets to calculate histograms of original columns
-			for _, set := range sets {
-				tableTransposed := make([][]byte, 0)
-
-				for longColumnPosition := range len(set[len(set)-1]) {
-					columnTransposed := make([]byte, len(set))
-
-					for columnLevel := range len(set) {
-						columnTransposed[columnLevel] = set[columnLevel][longColumnPosition]
+					for columnLevel := range len(blocks) - 1 {
+						columnTransposed[columnLevel] = blocks[columnLevel][shortColumnPosition]
 					}
 					tableTransposed = append(tableTransposed, columnTransposed)
 				}
-
-				if len(set[0]) != len(set[len(set)-1]) {
-					for shortColumnPosition := len(set[len(set)-1]); shortColumnPosition <= len(set[0])-1; shortColumnPosition++ {
-						columnTransposed := make([]byte, len(set)-1)
-
-						for columnLevel := range len(set) - 1 {
-							columnTransposed[columnLevel] = set[columnLevel][shortColumnPosition]
-						}
-
-						tableTransposed = append(tableTransposed, columnTransposed)
-					}
-				}
-				transposedSets = append(transposedSets, tableTransposed)
 			}
 		}
 
+		finalKey := make([]byte, 0)
 		{ // Calculate histograms
-
+			decryptedKey := make([]byte, 0)
+			for _, transposedColumn := range tableTransposed {
+				_, keyChar := byte_attack(transposedColumn)
+				decryptedKey = append(decryptedKey, keyChar)
+			}
+			finalKey = decryptedKey
 		}
-	}
 
+		keyRotationBookkeeping := 0
+		result := make([]byte, len(input))
+
+		for i, letter := range input {
+			result[i] = byte(letter) ^ finalKey[keyRotationBookkeeping]
+			if keyRotationBookkeeping == len(finalKey)-1 {
+				keyRotationBookkeeping = 0
+			} else {
+				keyRotationBookkeeping++
+			}
+		}
+
+		fmt.Printf(":: Challenge 6 ::\n\n")
+		fmt.Println("found key:", string(finalKey))
+		// fmt.Println("decrypted file:")
+		// fmt.Println(string(result))
+		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+	}
 }
 
 func hamming_distance(input, compare []byte) int {
@@ -245,14 +251,14 @@ func encrypt_with_repeating_key(input string, key string) {
 	}
 }
 
-func dictonary_attack(input string) string {
-	decoded := hex_decode(input)
+func byte_attack(input []byte) (string, byte) {
 	letterScores := make([]float64, 26)
 	realWorldProbabilities := []float64{0.117, 0.44, 0.52, 0.32, 0.28, 0.4, 0.16, 0.42, 0.73, 0.051, 0.086, 0.24, 0.38, 0.23, 0.76, 0.43, 0.022, 0.28, 0.67, 0.16, 0.12, 0.082, 0.55, 0.0045, 0.076, 0.0045}
 
-	xored := make([]byte, len(decoded))
-	bestResult := make([]byte, len(decoded))
+	xored := make([]byte, len(input))
+	bestResult := make([]byte, len(input))
 	bestPreviousScore := math.MaxFloat64
+	keyChar := byte(0)
 	for charByte := byte(0); ; charByte++ {
 		// 1. XOR input with every possible byte value.
 		// 2. Penalize results that are not valid character.
@@ -261,7 +267,7 @@ func dictonary_attack(input string) string {
 
 		finalScore := 0.0
 
-		for i, decodedByte := range decoded {
+		for i, decodedByte := range input {
 			xored[i] = decodedByte ^ charByte
 
 			switch {
@@ -271,9 +277,9 @@ func dictonary_attack(input string) string {
 				letterScores[int(xored[i])-97] += 1
 			case int(xored[i]) == 32:
 			case slices.Contains([]int{33, 39, 44, 45, 46, 58, 59, 96}, int(xored[i])): // check if byte represent space or interpunction signs
-				finalScore += 0.5 // arbitrary tuning to penalize interpunction slightly; needed in case input include many interpunction signs, e.x. "Onv!ui`u!uid!q`sux!hr!ktlqhof"
+				finalScore += 1 // arbitrary tuning to penalize interpunction slightly; needed in case input include many interpunction signs, e.x. "Onv!ui`u!uid!q`sux!hr!ktlqhof"
 			default:
-				finalScore += 10
+				finalScore += 100
 			}
 		}
 
@@ -288,6 +294,7 @@ func dictonary_attack(input string) string {
 		if finalScore < bestPreviousScore {
 			bestPreviousScore = finalScore
 			bestResult = slices.Clone(xored)
+			keyChar = charByte
 		}
 
 		if charByte == byte(255) {
@@ -295,7 +302,7 @@ func dictonary_attack(input string) string {
 		}
 	}
 
-	return string(bestResult)
+	return string(bestResult), keyChar
 }
 
 func score_string(input string) float64 {
