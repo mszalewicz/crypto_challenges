@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/aes"
 	b64 "encoding/base64"
 	"fmt"
 	"log"
@@ -202,6 +203,75 @@ func main() {
 		// fmt.Println(string(result))
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
 	}
+
+	{ // Challenge 7
+		file, err := os.ReadFile("./input_challenge_7.txt")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		input, err := b64.StdEncoding.DecodeString(string(file))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		key := []byte("YELLOW SUBMARINE")
+		paddedInput := pkcs7_padding(input, len(key))
+
+		// fmt.Println(len(rawlInput))
+		fmt.Println(len(input))
+		fmt.Println(input[2870:])
+		fmt.Println(paddedInput[2870:])
+
+		fmt.Println(byte(4))
+
+		decrypted := decrypt_128_ecb(paddedInput, key)
+
+		fmt.Printf(":: Challenge 7 ::\n\n")
+		fmt.Println(string(decrypted))
+		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+	}
+}
+
+func decrypt_128_ecb(data []byte, key []byte) []byte {
+	if len(key) != 16 {
+		log.Fatal("Key provided for decryption with 128 ECB, has lenght different than 16.")
+	}
+
+	plaintext := make([]byte, len(data))
+	keySize := len(key)
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for start, end := 0, keySize; start < len(data); start, end = start+keySize, end+keySize {
+		block.Decrypt(plaintext[start:end], data[start:end])
+		block.Decrypt(plaintext[start:], data[start:])
+	}
+
+	return plaintext
+}
+
+func pkcs7_padding(data []byte, keySize int) []byte {
+	moduloLastBlockLenght := len(data) % keySize
+
+	if moduloLastBlockLenght == 0 {
+		return data
+	}
+
+	padSize := keySize - moduloLastBlockLenght
+	paddedData := make([]byte, len(data)+padSize)
+
+	for index, _ := range paddedData {
+		if index < len(data) {
+			paddedData[index] = data[index]
+		} else {
+			paddedData[index] = byte(padSize)
+		}
+	}
+	return paddedData
 }
 
 func hamming_distance(input, compare []byte) int {
