@@ -217,19 +217,15 @@ func main() {
 
 		key := []byte("YELLOW SUBMARINE")
 		paddedInput := pkcs7_padding(input, len(key))
-
-		// fmt.Println(len(rawlInput))
-		fmt.Println(len(input))
-		fmt.Println(input[2870:])
-		fmt.Println(paddedInput[2870:])
-
-		fmt.Println(byte(4))
-
 		decrypted := decrypt_128_ecb(paddedInput, key)
 
 		fmt.Printf(":: Challenge 7 ::\n\n")
 		fmt.Println(string(decrypted))
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+	}
+
+	{ // Challenge 8
+
 	}
 }
 
