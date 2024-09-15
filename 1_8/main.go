@@ -286,6 +286,74 @@ func main() {
 	}
 }
 
+func break_repeating_key(input []byte, keysize int) (string, string) {
+	blocks := make([][]byte, 0)
+	{ // Partition original input into lines of length keysize - done for the best candidate key size
+		bookmark := 0
+		howManyPartitions := int(math.Ceil((float64(len(input)) / float64(keysize))))
+
+		for partition := range howManyPartitions {
+			line := make([]byte, 0)
+
+			switch {
+			case partition == howManyPartitions-1:
+				line = input[bookmark:]
+			default:
+				line = input[bookmark : bookmark+keysize]
+				bookmark = bookmark + keysize
+			}
+			blocks = append(blocks, line)
+		}
+	}
+
+	tableTransposed := make([][]byte, 0)
+	{ // Transpose set to calulate histograms of original columns
+		for longColumnPosition := range len(blocks[len(blocks)-1]) {
+			columnTransposed := make([]byte, len(blocks))
+
+			for columnLevel := range len(blocks) {
+				columnTransposed[columnLevel] = blocks[columnLevel][longColumnPosition]
+			}
+			tableTransposed = append(tableTransposed, columnTransposed)
+		}
+
+		if len(blocks[0]) != len(blocks[len(blocks)-1]) {
+			for shortColumnPosition := len(blocks[len(blocks)-1]); shortColumnPosition <= len(blocks[0])-1; shortColumnPosition++ {
+				columnTransposed := make([]byte, len(blocks)-1)
+
+				for columnLevel := range len(blocks) - 1 {
+					columnTransposed[columnLevel] = blocks[columnLevel][shortColumnPosition]
+				}
+				tableTransposed = append(tableTransposed, columnTransposed)
+			}
+		}
+	}
+
+	finalKey := make([]byte, 0)
+	{ // Calculate histograms
+		decryptedKey := make([]byte, 0)
+		for _, transposedColumn := range tableTransposed {
+			_, keyChar := byte_attack(transposedColumn)
+			decryptedKey = append(decryptedKey, keyChar)
+		}
+		finalKey = decryptedKey
+	}
+
+	keyRotationBookkeeping := 0
+	result := make([]byte, len(input))
+
+	for i, letter := range input {
+		result[i] = byte(letter) ^ finalKey[keyRotationBookkeeping]
+		if keyRotationBookkeeping == len(finalKey)-1 {
+			keyRotationBookkeeping = 0
+		} else {
+			keyRotationBookkeeping++
+		}
+	}
+
+	return string(result), string(finalKey)
+}
+
 func decrypt_128_ecb(data []byte, key []byte) []byte {
 	if len(key) != 16 {
 		log.Fatal("Key provided for decryption with 128 ECB, has lenght different than 16.")
