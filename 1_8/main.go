@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"os"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -225,7 +226,63 @@ func main() {
 	}
 
 	{ // Challenge 8
+		// In this file are a bunch of hex-encoded ciphertexts.
+		// One of them has been encrypted with ECB.
+		// Detect it.
+		// Remember that the problem with ECB is that it is stateless and deterministic; the same 16 byte plaintext block will always produce the same 16 byte ciphertext.
 
+		file, err := os.ReadFile("./input_challenge_8.txt")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		input := strings.Fields(string(file))
+
+		type Candidate struct {
+			content    string
+			duplicates int
+		}
+
+		duplicates := 0
+		candidates := make([]Candidate, 0, 5)
+		duplicatesMap := make(map[string]bool)
+
+		for _, entry := range input {
+			for i := 0; i < len(entry); i += 16 {
+				if _, ok := duplicatesMap[entry[i:i+16]]; ok {
+					duplicates++
+				} else {
+					duplicatesMap[entry[i:i+16]] = true
+				}
+			}
+
+			if duplicates != 0 {
+				candidates = append(candidates, Candidate{content: entry, duplicates: duplicates})
+				sort.Slice(candidates, func(i, j int) bool { return candidates[i].duplicates > candidates[j].duplicates })
+			}
+
+			duplicates = 0
+			clear(duplicatesMap)
+		}
+
+		fmt.Printf(":: Challenge 8 ::\n\n")
+		fmt.Println("Possible ECB candidates:")
+		for _, candidate := range candidates {
+			// // Decode hex
+			// src := []byte(candidate.content)
+			// dst := make([]byte, hex.DecodedLen(len(src)))
+			// _, err = hex.Decode(dst, src)
+			// if err != nil {
+			// 	log.Fatal(err)
+			// }
+
+			// result, key := break_repeating_ecb(dst, 16)
+			// fmt.Println(result)
+			// fmt.Println(key)
+
+			fmt.Println(candidate.content)
+		}
+		fmt.Println("---------------------------------------------------------------------------------------------------------------")
 	}
 }
 
