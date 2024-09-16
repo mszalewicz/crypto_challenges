@@ -284,6 +284,16 @@ func main() {
 		}
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
 	}
+
+	{ // Challenge 9
+		input := "YELLOW SUBMARINE"
+		result := pkcs7_padding([]byte(input), 20)
+		fmt.Printf(":: Challenge 9 ::\n\n")
+		fmt.Println("input:  ", []byte(input))
+		fmt.Println("padded: ", result)
+		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+	}
+
 }
 
 func break_repeating_key(input []byte, keysize int) (string, string) {
@@ -369,7 +379,6 @@ func decrypt_128_ecb(data []byte, key []byte) []byte {
 
 	for start, end := 0, keySize; start < len(data); start, end = start+keySize, end+keySize {
 		block.Decrypt(plaintext[start:end], data[start:end])
-		block.Decrypt(plaintext[start:], data[start:])
 	}
 
 	return plaintext
