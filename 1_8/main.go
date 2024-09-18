@@ -217,7 +217,7 @@ func main() {
 		}
 
 		key := []byte("YELLOW SUBMARINE")
-		paddedInput := pkcs7_padding(input, len(key))
+		paddedInput, _ := pkcs7_padding(input, len(key))
 		decrypted := decrypt_128_ecb(paddedInput, key)
 
 		fmt.Printf(":: Challenge 7 ::\n\n")
@@ -287,13 +287,91 @@ func main() {
 
 	{ // Challenge 9
 		input := "YELLOW SUBMARINE"
-		result := pkcs7_padding([]byte(input), 20)
+		result, _ := pkcs7_padding([]byte(input), 20)
 		fmt.Printf(":: Challenge 9 ::\n\n")
 		fmt.Println("input:  ", []byte(input))
 		fmt.Println("padded: ", result)
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
 	}
 
+	{ // Challenge 10
+		file, err := os.ReadFile("./input_challenge_10.txt")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		input, err := b64.StdEncoding.DecodeString(string(file))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		iv := make([]byte, 16)
+		key := []byte("YELLOW SUBMARINE")
+
+		decryptedMsg := decrypt_cbc(input, iv, key)
+
+		fmt.Printf(":: Challenge 10 ::\n\n")
+		fmt.Println(string(decryptedMsg))
+		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+	}
+}
+
+func decrypt_cbc(input []byte, iv []byte, key []byte) []byte {
+	if len(iv) != len(key) {
+		log.Fatal("IV and key have different lenghts. [decrypt_cbc]")
+	}
+
+	keysize := len(key)
+	uniqueBlockCount := int(math.Ceil(float64(len(input)) / float64(len(key))))
+	result := make([]byte, 0)
+
+	blocks := make([][]byte, 0, uniqueBlockCount)
+	// lastBlockPaddingLen := 0
+	for i := 0; i < uniqueBlockCount; i++ {
+		if i == uniqueBlockCount-1 {
+			padded, len := pkcs7_padding(input[i*keysize:], keysize)
+			_ = len
+			// lastBlockPaddingLen = len
+			blocks = append(blocks, padded)
+		} else {
+			blocks = append(blocks, input[i*keysize:i*keysize+keysize])
+		}
+	}
+
+	cipher, err := aes.NewCipher(key)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Decrytp each block with key and xor with previous block result
+	for i := len(blocks) - 1; i >= 0; i-- {
+		cipher.Decrypt(blocks[i], blocks[i])
+		if i > 0 {
+			blocks[i] = xor_block(blocks[i], blocks[i-1])
+		} else {
+			blocks[i] = xor_block(blocks[i], iv)
+		}
+	}
+
+	for _, block := range blocks {
+		result = append(result, block...)
+	}
+
+	return result
+}
+
+func xor_block(block []byte, key []byte) []byte {
+	if len(block) != len(key) {
+		log.Fatal("Block and key lenghts differ. [xor_block]")
+	}
+
+	result := make([]byte, len(block))
+
+	for i, blockByte := range block {
+		result[i] = blockByte ^ key[i]
+	}
+
+	return result
 }
 
 func break_repeating_key(input []byte, keysize int) (string, string) {
@@ -384,11 +462,11 @@ func decrypt_128_ecb(data []byte, key []byte) []byte {
 	return plaintext
 }
 
-func pkcs7_padding(data []byte, keySize int) []byte {
+func pkcs7_padding(data []byte, keySize int) ([]byte, int) {
 	moduloLastBlockLenght := len(data) % keySize
 
 	if moduloLastBlockLenght == 0 {
-		return data
+		return data, 0
 	}
 
 	padSize := keySize - moduloLastBlockLenght
@@ -401,7 +479,7 @@ func pkcs7_padding(data []byte, keySize int) []byte {
 			paddedData[index] = byte(padSize)
 		}
 	}
-	return paddedData
+	return paddedData, padSize
 }
 
 func hamming_distance(input, compare []byte) int {
