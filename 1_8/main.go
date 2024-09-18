@@ -330,7 +330,7 @@ func main() {
 		iv := make([]byte, 16)
 		key := []byte("YELLOW SUBMARINE")
 
-		decryptedMsg := decrypt_cbc(input, iv, key)
+		decryptedMsg := decrypt_128_cbc(input, iv, key)
 
 		fmt.Println()
 		fmt.Printf(":: Challenge 10 ::\n\n")
@@ -341,8 +341,8 @@ func main() {
 		test := []byte("Dakka and da waaaaagh!!! For ORC")
 		iv2 := []byte("YELLOW SUBMARINE")
 		key2 := []byte("AXCFJSKE#@sdlcaa")
-		encryptedTest := encrypt_cbc(test, iv2, key2)
-		decryptedTest := decrypt_cbc(encryptedTest, iv2, key2)
+		encryptedTest := encrypt_128_cbc(test, iv2, key2)
+		decryptedTest := decrypt_128_cbc(encryptedTest, iv2, key2)
 
 		fmt.Println("Encryption and decryption testing [result should be a readable text]:", string(decryptedTest))
 		fmt.Println()
@@ -352,14 +352,16 @@ func main() {
 
 	{ // Challenge 11
 		// An ECB/CBC detection oracle
-
+		//
 		// Now that you have ECB and CBC working:
 		// Write a function to generate a random AES key; that's just 16 random bytes.
 		// Write a function that encrypts data under an unknown key --- that is, a function that generates a random key and encrypts under it.
-
+		//
 		// The function should look like:
+		//
 		// 	encryption_oracle(your-input)
 		// 	=> [MEANINGLESS JIBBER JABBER]
+		//
 		// Under the hood, have the function append 5-10 bytes (count chosen randomly) before the plaintext and 5-10 bytes after the plaintext.
 		// Now, have the function choose to encrypt under ECB 1/2 the time, and under CBC the other half (just use random IVs each time for CBC). Use rand(2) to decide which to use.
 		// Detect the block cipher mode the function is using each time. You should end up with a piece of code that, pointed at a block box that might be encrypting ECB or CBC, tells you which one is happening.
@@ -381,7 +383,7 @@ func random_aes_key() []byte {
 	return key
 }
 
-func encrypt_cbc(input []byte, iv []byte, key []byte) []byte {
+func encrypt_128_cbc(input []byte, iv []byte, key []byte) []byte {
 	if len(iv) != len(key) {
 		log.Fatal("IV and key have different lenghts. [decrypt_cbc]")
 	}
@@ -427,7 +429,7 @@ func encrypt_cbc(input []byte, iv []byte, key []byte) []byte {
 	return result
 }
 
-func decrypt_cbc(input []byte, iv []byte, key []byte) []byte {
+func decrypt_128_cbc(input []byte, iv []byte, key []byte) []byte {
 	if len(iv) != len(key) {
 		log.Fatal("IV and key have different lenghts. [decrypt_cbc]")
 	}
@@ -552,6 +554,38 @@ func break_repeating_key(input []byte, keysize int) (string, string) {
 	}
 
 	return string(result), string(finalKey)
+}
+
+func encrypt_128_ecb(input []byte, key []byte) []byte {
+	if len(key) != 16 {
+		log.Fatal("Key provided for decryption with 128 ECB, has lenght different than 16.")
+	}
+
+	keysize := len(key)
+	ciphertext := make([]byte, 0)
+	uniqueBlockCount := int(math.Ceil(float64(len(input)) / float64(len(key))))
+	blocks := make([][]byte, 0, uniqueBlockCount)
+
+	cipher, err := aes.NewCipher(key)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for i := 0; i < uniqueBlockCount; i++ {
+		if i == uniqueBlockCount-1 {
+			padded, _ := pkcs7_padding(input[i*keysize:], keysize)
+			blocks = append(blocks, padded)
+		} else {
+			blocks = append(blocks, input[i*keysize:i*keysize+keysize])
+		}
+	}
+
+	for i := range blocks {
+		cipher.Encrypt(blocks[i], blocks[i])
+		ciphertext = append(ciphertext, blocks[i]...)
+	}
+
+	return ciphertext
 }
 
 func decrypt_128_ecb(data []byte, key []byte) []byte {
