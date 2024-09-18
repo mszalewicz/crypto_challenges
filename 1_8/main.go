@@ -23,10 +23,13 @@ func main() {
 		base64Representation := base64_encode(binaryRepresentation)
 
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+		fmt.Println()
 		fmt.Printf(":: Challenge 1 ::\n\n")
 		fmt.Println("expect:", "SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t")
 		fmt.Println("result:", base64Representation)
+		fmt.Println()
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+		fmt.Println()
 	}
 
 	{ // Challenge 2
@@ -44,8 +47,9 @@ func main() {
 
 		fmt.Printf(":: Challenge 2 ::\n\n")
 		fmt.Println("expect:", "746865206b696420646f6e277420706c6179")
-		fmt.Printf("result: %x\n", result)
+		fmt.Printf("result: %x\n\n", result)
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+		fmt.Println()
 	}
 
 	{ // Challenge 3
@@ -55,7 +59,9 @@ func main() {
 
 		fmt.Printf(":: Challenge 3 ::\n\n")
 		fmt.Println("result:", result)
+		fmt.Println()
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+		fmt.Println()
 	}
 
 	{ // Challenge 4
@@ -78,8 +84,9 @@ func main() {
 		}
 
 		fmt.Printf(":: Challenge 4 ::\n\n")
-		fmt.Print("result: ", bestResult)
+		fmt.Println("result: ", bestResult)
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+		fmt.Println()
 	}
 
 	{ // Challenge 5
@@ -100,8 +107,9 @@ func main() {
 
 		fmt.Printf(":: Challenge 5 ::\n\n")
 		fmt.Println("expect:", "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f")
-		fmt.Printf("result: %x\n", result)
+		fmt.Printf("result: %x\n\n", result)
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+		fmt.Println()
 	}
 
 	{ // Challenge 6
@@ -200,9 +208,11 @@ func main() {
 
 		fmt.Printf(":: Challenge 6 ::\n\n")
 		fmt.Println("found key:", string(finalKey))
+		fmt.Println()
 		// fmt.Println("decrypted file:")
 		// fmt.Println(string(result))
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+		fmt.Println()
 	}
 
 	{ // Challenge 7
@@ -223,6 +233,7 @@ func main() {
 		fmt.Printf(":: Challenge 7 ::\n\n")
 		fmt.Println(string(decrypted))
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+		fmt.Println()
 	}
 
 	{ // Challenge 8
@@ -282,7 +293,9 @@ func main() {
 
 			fmt.Println(candidate.content)
 		}
+		fmt.Println()
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+		fmt.Println()
 	}
 
 	{ // Challenge 9
@@ -291,6 +304,7 @@ func main() {
 		fmt.Printf(":: Challenge 9 ::\n\n")
 		fmt.Println("input:  ", []byte(input))
 		fmt.Println("padded: ", result)
+		fmt.Println()
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
 	}
 
@@ -310,13 +324,26 @@ func main() {
 
 		decryptedMsg := decrypt_cbc(input, iv, key)
 
+		fmt.Println()
 		fmt.Printf(":: Challenge 10 ::\n\n")
 		fmt.Println(string(decryptedMsg))
+		fmt.Println("------")
+		fmt.Println()
+
+		test := []byte("Dakka and da waaaaagh!!! For ORC")
+		iv2 := []byte("YELLOW SUBMARINE")
+		key2 := []byte("AXCFJSKE#@sdlcaa")
+		encryptedTest := encrypt_cbc(test, iv2, key2)
+		decryptedTest := decrypt_cbc(encryptedTest, iv2, key2)
+
+		fmt.Println("Encryption and decryption testing [result should be a readable text]:", string(decryptedTest))
+		fmt.Println()
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+		fmt.Println()
 	}
 }
 
-func decrypt_cbc(input []byte, iv []byte, key []byte) []byte {
+func encrypt_cbc(input []byte, iv []byte, key []byte) []byte {
 	if len(iv) != len(key) {
 		log.Fatal("IV and key have different lenghts. [decrypt_cbc]")
 	}
@@ -325,6 +352,7 @@ func decrypt_cbc(input []byte, iv []byte, key []byte) []byte {
 	uniqueBlockCount := int(math.Ceil(float64(len(input)) / float64(len(key))))
 	result := make([]byte, 0)
 
+	// Divide input into blocks
 	blocks := make([][]byte, 0, uniqueBlockCount)
 	// lastBlockPaddingLen := 0
 	for i := 0; i < uniqueBlockCount; i++ {
@@ -343,7 +371,53 @@ func decrypt_cbc(input []byte, iv []byte, key []byte) []byte {
 		log.Fatal(err)
 	}
 
-	// Decrytp each block with key and xor with previous block result
+	// XOR each input with: first with IV, the rest with result
+	// of encryption of the last block and encrypt with AES
+	for i := range blocks {
+		if i > 0 {
+			blocks[i] = xor_block(blocks[i], blocks[i-1])
+		} else {
+			blocks[i] = xor_block(blocks[i], iv)
+		}
+		cipher.Encrypt(blocks[i], blocks[i])
+	}
+
+	for _, block := range blocks {
+		result = append(result, block...)
+	}
+
+	return result
+}
+
+func decrypt_cbc(input []byte, iv []byte, key []byte) []byte {
+	if len(iv) != len(key) {
+		log.Fatal("IV and key have different lenghts. [decrypt_cbc]")
+	}
+
+	keysize := len(key)
+	uniqueBlockCount := int(math.Ceil(float64(len(input)) / float64(len(key))))
+	result := make([]byte, 0)
+
+	// Divide input into blocks
+	blocks := make([][]byte, 0, uniqueBlockCount)
+	// lastBlockPaddingLen := 0
+	for i := 0; i < uniqueBlockCount; i++ {
+		if i == uniqueBlockCount-1 {
+			padded, len := pkcs7_padding(input[i*keysize:], keysize)
+			_ = len
+			// lastBlockPaddingLen = len
+			blocks = append(blocks, padded)
+		} else {
+			blocks = append(blocks, input[i*keysize:i*keysize+keysize])
+		}
+	}
+
+	cipher, err := aes.NewCipher(key)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Decrypt each block with key and xor with previous block result
 	for i := len(blocks) - 1; i >= 0; i-- {
 		cipher.Decrypt(blocks[i], blocks[i])
 		if i > 0 {
@@ -472,7 +546,7 @@ func pkcs7_padding(data []byte, keySize int) ([]byte, int) {
 	padSize := keySize - moduloLastBlockLenght
 	paddedData := make([]byte, len(data)+padSize)
 
-	for index, _ := range paddedData {
+	for index := range paddedData {
 		if index < len(data) {
 			paddedData[index] = data[index]
 		} else {
