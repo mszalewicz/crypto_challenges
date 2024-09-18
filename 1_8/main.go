@@ -367,14 +367,49 @@ func main() {
 		// Now, have the function choose to encrypt under ECB 1/2 the time, and under CBC the other half (just use random IVs each time for CBC). Use rand(2) to decide which to use.
 		// Detect the block cipher mode the function is using each time. You should end up with a piece of code that, pointed at a block box that might be encrypting ECB or CBC, tells you which one is happening.
 
-		input := []byte("Detect the block cipher mode the function is using each time. You should end up with a piece of code that, pointed at a block box that might be encrypting ECB or CBC, tells you which one is happening.")
-		for range 100 {
-			result, mode := encryption_oracle(input)
-			_ = result
-			fmt.Println(mode)
-			// fmt.Println(result)
+		file, err := os.ReadFile("./input_challenge_11_custom.txt")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		numberOfPasses := 1024
+		correctAnswers := 0
+
+		for range numberOfPasses {
+			result, mode := encryption_oracle(file)
+			duplicates, _ := encrypted_series_statistics(result, 16)
+			if (duplicates > 0 && mode == "ecb") || (duplicates == 0 && mode == "cbc") {
+				correctAnswers++
+			}
+		}
+		fmt.Printf(":: Challenge 11 ::\n\n")
+		fmt.Println("Number of guesses:", numberOfPasses)
+		fmt.Printf("Rate of success of detection between ECB and CBC: %.0f%%\n", 100*float64(correctAnswers)/float64(numberOfPasses))
+		fmt.Println()
+		fmt.Println("---------------------------------------------------------------------------------------------------------------")
+		fmt.Println()
+	}
+}
+
+// Calculates number of duplicates and cumulative hamming code normalized over number of blocks in input.
+func encrypted_series_statistics(input []byte, keysize int) (int, float64) {
+	numberOfBlocks := math.Ceil(float64(len(input)) / float64(keysize))
+
+	duplicates := 0
+	duplicatesMap := make(map[string]bool)
+	hamming := float64(0)
+	for position := 0; position < int(numberOfBlocks)*keysize; position += keysize {
+		hamming += float64(hamming_distance(input[position:position+keysize], input[position+keysize:position+2*keysize]))
+		if _, ok := duplicatesMap[string(input[position:position+keysize])]; ok {
+			duplicates++
+		} else {
+			duplicatesMap[string(input[position:position+keysize])] = true
 		}
 	}
+
+	hammingNormalized := hamming / numberOfBlocks
+
+	return duplicates, hammingNormalized
 }
 
 func encryption_oracle(input []byte) ([]byte, string) {
