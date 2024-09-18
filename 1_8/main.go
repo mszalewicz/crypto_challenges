@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"math/big"
+	rnd "math/rand"
 	"os"
 	"slices"
 	"sort"
@@ -365,7 +366,51 @@ func main() {
 		// Under the hood, have the function append 5-10 bytes (count chosen randomly) before the plaintext and 5-10 bytes after the plaintext.
 		// Now, have the function choose to encrypt under ECB 1/2 the time, and under CBC the other half (just use random IVs each time for CBC). Use rand(2) to decide which to use.
 		// Detect the block cipher mode the function is using each time. You should end up with a piece of code that, pointed at a block box that might be encrypting ECB or CBC, tells you which one is happening.
+
+		input := []byte("Detect the block cipher mode the function is using each time. You should end up with a piece of code that, pointed at a block box that might be encrypting ECB or CBC, tells you which one is happening.")
+		for range 100 {
+			result, mode := encryption_oracle(input)
+			_ = result
+			fmt.Println(mode)
+			// fmt.Println(result)
+		}
 	}
+}
+
+func encryption_oracle(input []byte) ([]byte, string) {
+	var result []byte
+
+	prefixByteLen := rnd.Intn(6) + 5
+	prefix := make([]byte, prefixByteLen)
+	rand.Read(prefix)
+
+	suffixByteLen := rnd.Intn(6) + 5
+	suffix := make([]byte, suffixByteLen)
+	rand.Read(suffix)
+
+	swoleInput := make([]byte, 0)
+	swoleInput = append(prefix, input...)
+	swoleInput = append(swoleInput, suffix...)
+
+	key := random_aes_key()
+	mode := ""
+
+	if rnd.Intn(2) == 0 {
+		result = encrypt_128_ecb(swoleInput, key)
+		mode = "ecb"
+	} else {
+		iv := random_aes_key()
+		result = encrypt_128_cbc(swoleInput, iv, key)
+		mode = "cbc"
+	}
+
+	// fmt.Println("prefix len:", len(prefix))
+	// fmt.Println("suffix len:", len(suffix))
+	// fmt.Println("input len:", len(input))
+	// fmt.Println("result len:", len(result))
+	// fmt.Println()
+
+	return result, mode
 }
 
 func random_aes_key() []byte {
