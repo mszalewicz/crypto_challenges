@@ -389,6 +389,15 @@ func main() {
 		fmt.Println("---------------------------------------------------------------------------------------------------------------")
 		fmt.Println()
 	}
+
+	{ // Challenge 12
+		masterKey := "1234567890abcdef"
+		textToAppendB64 := "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK"
+		textToAppend, err := b64.StdEncoding.DecodeString(textToAppendB64)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }
 
 // Calculates number of duplicates and cumulative hamming code normalized over number of blocks in input.
