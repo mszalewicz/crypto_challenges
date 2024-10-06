@@ -391,12 +391,24 @@ func main() {
 	}
 
 	{ // Challenge 12
-		masterKey := "1234567890abcdef"
-		textToAppendB64 := "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK"
-		textToAppend, err := b64.StdEncoding.DecodeString(textToAppendB64)
+		key := make([]byte, 16)
+		_, err := rand.Read(key)
+
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		textToAppendB64 := "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK"
+		textToAppend, err := b64.StdEncoding.DecodeString(textToAppendB64)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		input := []byte("A")
+
+		consistent_oracle(input, textToAppend, key)
+
 	}
 }
 
@@ -419,6 +431,17 @@ func encrypted_series_statistics(input []byte, keysize int) (int, float64) {
 	hammingNormalized := hamming / numberOfBlocks
 
 	return duplicates, hammingNormalized
+}
+
+func consistent_oracle(input []byte, core []byte, key []byte) []byte {
+	var result []byte
+
+	swoleInput := make([]byte, 0)
+	swoleInput = append(input, core...)
+
+	result = encrypt_128_ecb(swoleInput, key)
+
+	return result
 }
 
 func encryption_oracle(input []byte) ([]byte, string) {
@@ -447,12 +470,6 @@ func encryption_oracle(input []byte) ([]byte, string) {
 		result = encrypt_128_cbc(swoleInput, iv, key)
 		mode = "cbc"
 	}
-
-	// fmt.Println("prefix len:", len(prefix))
-	// fmt.Println("suffix len:", len(suffix))
-	// fmt.Println("input len:", len(input))
-	// fmt.Println("result len:", len(result))
-	// fmt.Println()
 
 	return result, mode
 }
